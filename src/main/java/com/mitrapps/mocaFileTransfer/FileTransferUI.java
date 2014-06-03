@@ -24,16 +24,21 @@
 package com.mitrapps.mocaFileTransfer;
 
 import java.awt.Dimension;
+import java.awt.Event;
 import java.awt.EventQueue;
 import java.awt.Point;
 import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
+import java.awt.event.KeyEvent;
 import java.awt.event.MouseAdapter;
 import java.awt.event.MouseEvent;
 import java.io.File;
 import java.io.IOException;
 
+import javax.swing.AbstractAction;
+import javax.swing.Action;
 import javax.swing.JButton;
+import javax.swing.JComponent;
 import javax.swing.JFrame;
 import javax.swing.JLabel;
 import javax.swing.JPanel;
@@ -42,9 +47,11 @@ import javax.swing.JScrollPane;
 import javax.swing.JTable;
 import javax.swing.JTextArea;
 import javax.swing.JTextField;
+import javax.swing.KeyStroke;
 import javax.swing.Spring;
 import javax.swing.SpringLayout;
 import javax.swing.SwingConstants;
+import javax.swing.SwingWorker;
 import javax.swing.UIManager;
 import javax.swing.UnsupportedLookAndFeelException;
 import javax.swing.WindowConstants;
@@ -53,7 +60,9 @@ import javax.swing.plaf.basic.BasicArrowButton;
 import com.redprairie.moca.MocaException;
 import com.redprairie.moca.MocaResults;
 import com.redprairie.moca.client.ConnectionUtils;
+import com.redprairie.moca.client.DirectConnection;
 import com.redprairie.moca.client.HttpConnection;
+import com.redprairie.moca.client.LoginFailedException;
 import com.redprairie.moca.client.MocaConnection;
 
 public class FileTransferUI extends JFrame {
@@ -271,6 +280,17 @@ public class FileTransferUI extends JFrame {
         
 		setContentPane(contentPane);
 		
+		Action refreshAction = new AbstractAction() {
+			private static final long serialVersionUID = 1L;
+			public void actionPerformed(ActionEvent e) {
+				refresh();
+		    }
+		};
+		
+		this.contentPane.getInputMap(JComponent.WHEN_IN_FOCUSED_WINDOW).put(KeyStroke.getKeyStroke("F5"), "refresh");
+		this.contentPane.getInputMap(JComponent.WHEN_IN_FOCUSED_WINDOW).put(KeyStroke.getKeyStroke(KeyEvent.VK_R, Event.META_MASK), "refresh");
+		this.contentPane.getActionMap().put("refresh", refreshAction);
+		
 		this.setTitle("moca File Transfer");
 		this.setLocalPath(this.currentLocalDirectory.getAbsolutePath());
 		resetColumnSizes();
@@ -295,10 +315,16 @@ public class FileTransferUI extends JFrame {
 		UIManager.setLookAndFeel(UIManager.getSystemLookAndFeelClassName());
 	}
 	
+	private void refresh() {
+		getLocalDirectoryListing(localPath.getText());
+		if (this.remotePath.getText().length() > 0) {
+			this.getRemoteDirectoryListing(this.remotePath.getText());
+		}
+	}
+	
 	private void login() {
 		try {
-			conn = new HttpConnection(this.mocaUrl.getText());
-	    	ConnectionUtils.login(conn, this.mocaUid.getText(), new String(this.mocaPwd.getPassword()));
+			conn = makeConnections();
         	String remotePathString = REMOTE_HOME_DIR;
         	MocaResults rs = conn.executeCommand(String.format("find file where filnam = '%s'", REMOTE_HOME_DIR));
         	while (rs.next()) {
@@ -309,9 +335,32 @@ public class FileTransferUI extends JFrame {
     		this.remoteListing.setModel(model);	
     		this.resetRemoteColumnSizes();
         } catch (MocaException e) {
-        	//TODO: handle this
-        	e.printStackTrace();
+        	displayException(e);
         }
+	}
+
+	private void displayException(Exception e) {
+		StackTraceElement[] st = e.getStackTrace();
+		for (StackTraceElement element : st) {
+			this.logArea.append(element.toString());
+			this.logArea.append("\n");
+		}
+	}
+
+	private MocaConnection makeConnections() throws MocaException, LoginFailedException {
+		MocaConnection newConn = null;
+		if (this.mocaUrl.getText().startsWith("http")) {
+			this.logArea.append("Connecting to " + this.mocaUrl.getText() + "\n");
+			newConn = new HttpConnection(this.mocaUrl.getText());
+		} else {
+			String[] tokens = this.mocaUrl.getText().split(":");
+			String host = tokens[0];
+			int port = Integer.parseInt(tokens[1]);
+			this.logArea.append("Connecting to " + host + ":" + port + "\n");
+			newConn = new DirectConnection(host, port);
+		}
+		ConnectionUtils.login(newConn, this.mocaUid.getText(), new String(this.mocaPwd.getPassword()));
+		return newConn;
 	}
 	
 	private void setLocalPath(String path) {
@@ -330,48 +379,65 @@ public class FileTransferUI extends JFrame {
 	private void performLocalDirectoryChange(int row) {
 		String subdirectory = (String)this.localListing.getValueAt(row, AbstractListingTableModel.FILE_NAME_COLUMN_INDEX);
 		String newdirectory = String.format("%s/%s", this.localPath.getText(), subdirectory);
-		
-		this.currentLocalDirectory = new File(newdirectory);
-		this.setLocalPath(newdirectory);
+		this.getLocalDirectoryListing(newdirectory);		
+	}
+	
+	private void getLocalDirectoryListing(String path) {
+		this.currentLocalDirectory = new File(path);
+		this.setLocalPath(path);
 		
 		LocalListingTableModel model = new LocalListingTableModel(currentLocalDirectory);
 		this.localListing.setModel(model);	
 		this.resetLocalColumnSizes();
-		
-		//this.logArea.append("Double Click Local Row " + row + "\n");
 	}
 	
 	private void performRemoteDirectoryChange(int row) {
 		
 		String subdirectory = (String)this.remoteListing.getValueAt(row, AbstractListingTableModel.FILE_NAME_COLUMN_INDEX);
 		String newdirectory = String.format("%s/%s", this.remotePath.getText(), subdirectory);
-		
-		RemoteListingTableModel model = new RemoteListingTableModel(conn, newdirectory);
+		this.getRemoteDirectoryListing(newdirectory);
+	}
+	
+	private void getRemoteDirectoryListing(String path) {
+		RemoteListingTableModel model = new RemoteListingTableModel(conn, path);
 		this.remoteListing.setModel(model);	
 		this.remotePath.setText(model.getCurrentPath());
 		this.resetRemoteColumnSizes();
-		
-		//this.logArea.append("Double Click Remote Row " + row + "\n");
 	}
 	
 	private void performUpload() {
 		if (this.localListing.getSelectedRowCount() > 0) {
-			String destinationPath = this.remotePath.getText();
+			final String destinationPath = this.remotePath.getText();
 			String sourcePath = this.localPath.getText();
 			int[] rows = this.localListing.getSelectedRows();
 			for (int rowIndex : rows) {
 				String fileName = this.localListing.getValueAt(rowIndex, AbstractListingTableModel.FILE_NAME_COLUMN_INDEX).toString();
-				String sourceFile = String.format("%s/%s", sourcePath, fileName);
-				String destinationFile = String.format("%s/%s", destinationPath, fileName);
-				this.logArea.append(String.format("Uploading %s to %s ..... \n", sourceFile, destinationFile));
-				FileUploader.transferFile(conn, sourceFile, destinationFile);
-				this.logArea.append("Done!\n");
+				final String sourceFile = String.format("%s/%s", sourcePath, fileName);
+				final String destinationFile = String.format("%s/%s", destinationPath, fileName);
+				//this.logArea.append(String.format("Uploading %s to %s ..... \n", sourceFile, destinationFile));
+				String logMessage = String.format("Uploading %s to %s ..... \n", sourceFile, destinationFile);
+				this.logArea.append(logMessage);
+
+				//this.logArea.repaint();
+				SwingWorker<Void, Void> worker = new SwingWorker<Void, Void>() {
+				    @Override
+				    public Void doInBackground() {
+				    	FileUploader.transferFile(conn, sourceFile, destinationFile);
+						return null;
+				    }
+
+				    @Override
+				    public void done() {
+				    	logArea.append("Done!\n");
+				    	// TODO:  Refactor this and the download equivalent to their own methods
+						RemoteListingTableModel model = new RemoteListingTableModel(conn, destinationPath);
+						remoteListing.setModel(model);	
+						remotePath.setText(model.getCurrentPath());
+						resetRemoteColumnSizes();
+				    }
+				};
+				worker.execute();
 			}
-			// TODO:  Refactor this and the download equivalent to their own methods
-			RemoteListingTableModel model = new RemoteListingTableModel(conn, destinationPath);
-			this.remoteListing.setModel(model);	
-			this.remotePath.setText(model.getCurrentPath());
-			this.resetRemoteColumnSizes();
 			
 		} else {
 			this.logArea.append("Nothing to upload\n");
@@ -380,22 +446,48 @@ public class FileTransferUI extends JFrame {
 	
 	private void performDownload() {
 		if (this.remoteListing.getSelectedRowCount() > 0) {
-			String destinationPath = this.localPath.getText();
-			String sourcePath = this.remotePath.getText();
+			final String destinationPath = this.localPath.getText();
+			final String sourcePath = this.remotePath.getText();
 			int[] rows = this.remoteListing.getSelectedRows();
 			for (int rowIndex : rows) {
-				String fileName = this.remoteListing.getValueAt(rowIndex, AbstractListingTableModel.FILE_NAME_COLUMN_INDEX).toString();
-				String sourceFile = String.format("%s/%s", sourcePath, fileName);
-				String destinationFile = String.format("%s/%s", destinationPath, fileName);
+				
+				
+				
+				final String fileName = this.remoteListing.getValueAt(rowIndex, AbstractListingTableModel.FILE_NAME_COLUMN_INDEX).toString();
+				final String sourceFile = String.format("%s/%s", sourcePath, fileName);
+				final String destinationFile = String.format("%s/%s", destinationPath, fileName);
 				this.logArea.append(String.format("Downloading %s to %s ..... \n", sourceFile, destinationFile));
-				FileDownloader.transferFile(sourceFile, destinationFile, conn);
-				this.logArea.append("Done!\n");
+
+				//this.logArea.repaint();
+				SwingWorker<Void, Void> worker = new SwingWorker<Void, Void>() {
+				    @Override
+				    public Void doInBackground() {
+				    	// multi-threading, we'll need multiple connections
+				    	try {
+							MocaConnection connForDownload = makeConnections();
+							FileDownloader.transferFile(sourceFile, destinationFile, connForDownload);
+						} catch (LoginFailedException e) {
+							displayException(e);
+						} catch (MocaException e) {
+							displayException(e);
+						}
+						return null;
+				    }
+
+				    @Override
+				    public void done() {
+				    	logArea.append("Done downloading " + fileName + "!\n");
+				    	// TODO:  Refactor this and the download equivalent to their own methods
+				    	currentLocalDirectory = new File(destinationPath);			
+						LocalListingTableModel model = new LocalListingTableModel(currentLocalDirectory);
+						localListing.setModel(model);	
+						resetLocalColumnSizes();
+				    }
+				};
+				worker.execute();
 			}
 			
-			this.currentLocalDirectory = new File(destinationPath);			
-			LocalListingTableModel model = new LocalListingTableModel(currentLocalDirectory);
-			this.localListing.setModel(model);	
-			this.resetLocalColumnSizes();
+			
 			
 		} else {
 			this.logArea.append("Nothing to download\n");
