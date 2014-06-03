@@ -436,7 +436,10 @@ public class FileTransferUI extends JFrame {
 	
 	private void setRemotePathManually() {
 		try {
-			conn.executeCommand(String.format("find file where filnam = '%s'", this.remotePath.getText()));
+			MocaResults rs = conn.executeCommand(String.format("find file where filnam = '%s'", this.remotePath.getText()));
+			if (!rs.hasNext()) {
+				throw new MocaException(510);
+			}
 			this.getRemoteDirectoryListing(this.remotePath.getText());
 		} catch (MocaException e) {
 			JOptionPane.showMessageDialog(this, 
