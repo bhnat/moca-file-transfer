@@ -5,4 +5,6 @@ server.  Currently, this only works with moca-ng, that is, using an
 HttpConnection.  You will need to obtain a copy of moca-core.jar and place 
 it in your local maven repository before building this project.
 
+2014 June 3 - Added refresh (F5 or ⌘R)
+
 Check out the [project wiki](../../wiki).
