@@ -32,6 +32,7 @@ import java.awt.event.ActionListener;
 import java.awt.event.FocusEvent;
 import java.awt.event.FocusListener;
 import java.awt.event.KeyEvent;
+import java.awt.event.KeyListener;
 import java.awt.event.MouseAdapter;
 import java.awt.event.MouseEvent;
 import java.io.File;
@@ -132,6 +133,15 @@ public class FileTransferUI extends JFrame {
             }
         });
         
+		Action localEnterAction = new AbstractAction() {
+			private static final long serialVersionUID = 1L;
+			public void actionPerformed(ActionEvent e) {
+				setLocalPathManually();
+		    }
+		};
+        this.localPath.getInputMap().put(KeyStroke.getKeyStroke(KeyEvent.VK_ENTER, 0), "enter");
+		this.localPath.getActionMap().put("enter", localEnterAction);
+        
         this.remotePath.addFocusListener(new FocusListener() {
             public void focusGained(FocusEvent e) {
             	tempPathString = remotePath.getText();
@@ -142,6 +152,15 @@ public class FileTransferUI extends JFrame {
             	}
             }
         });
+        
+        Action remoteEnterAction = new AbstractAction() {
+			private static final long serialVersionUID = 1L;
+			public void actionPerformed(ActionEvent e) {
+				setRemotePathManually();
+		    }
+		};
+        this.remotePath.getInputMap().put(KeyStroke.getKeyStroke(KeyEvent.VK_ENTER, 0), "enter");
+		this.remotePath.getActionMap().put("enter", remoteEnterAction);
         
         this.mocaUrl = new JTextField();
         this.mocaUid = new JTextField();
