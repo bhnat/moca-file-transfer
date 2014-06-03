@@ -6,7 +6,8 @@ HttpConnection.  You will need to obtain a copy of moca-core.jar and place
 it in your local maven repository before building this project.
 
 2014 June 3
-    - Added refresh (F5 or ⌘R)
-    - Also supports legacy moca connections (DirectConnection) - type in the host:port     
+- Added refresh (F5 or ⌘R)
+- Also supports legacy moca connections (DirectConnection) - type in the host:port  
+- Can now directly type in a local or remote path   
 
 Check out the [project wiki](../../wiki).

@@ -29,6 +29,8 @@ import java.awt.EventQueue;
 import java.awt.Point;
 import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
+import java.awt.event.FocusEvent;
+import java.awt.event.FocusListener;
 import java.awt.event.KeyEvent;
 import java.awt.event.MouseAdapter;
 import java.awt.event.MouseEvent;
@@ -41,6 +43,7 @@ import javax.swing.JButton;
 import javax.swing.JComponent;
 import javax.swing.JFrame;
 import javax.swing.JLabel;
+import javax.swing.JOptionPane;
 import javax.swing.JPanel;
 import javax.swing.JPasswordField;
 import javax.swing.JScrollPane;
@@ -51,6 +54,7 @@ import javax.swing.KeyStroke;
 import javax.swing.Spring;
 import javax.swing.SpringLayout;
 import javax.swing.SwingConstants;
+import javax.swing.SwingUtilities;
 import javax.swing.SwingWorker;
 import javax.swing.UIManager;
 import javax.swing.UnsupportedLookAndFeelException;
@@ -83,6 +87,7 @@ public class FileTransferUI extends JFrame {
 	private JButton downloadButton;
 	private JButton loginButton;
 	private JTextArea logArea;
+	private String tempPathString; // used in FocusListener to see if the path has changed
 	
 	public static void main(String[] args) {
 
@@ -113,8 +118,30 @@ public class FileTransferUI extends JFrame {
         
         this.localPath = new JTextField();
         this.remotePath = new JTextField();
-        this.localPath.setEditable(false);
-        this.remotePath.setEditable(false); // TODO:  Later, allow the user to type path directly
+        this.localPath.setEditable(true);
+        this.remotePath.setEditable(true); 
+        
+        this.localPath.addFocusListener(new FocusListener() {
+            public void focusGained(FocusEvent e) {
+            	tempPathString = localPath.getText();
+            };
+            public void focusLost(FocusEvent e) {
+            	if (!e.isTemporary() && !tempPathString.equalsIgnoreCase(localPath.getText())) {
+            		setLocalPathManually();
+            	}
+            }
+        });
+        
+        this.remotePath.addFocusListener(new FocusListener() {
+            public void focusGained(FocusEvent e) {
+            	tempPathString = remotePath.getText();
+            };
+            public void focusLost(FocusEvent e) {
+            	if (!e.isTemporary() && !tempPathString.equalsIgnoreCase(remotePath.getText())) {
+            		setRemotePathManually();
+            	}
+            }
+        });
         
         this.mocaUrl = new JTextField();
         this.mocaUid = new JTextField();
@@ -376,6 +403,32 @@ public class FileTransferUI extends JFrame {
 		}
 	}
 	
+	private void setLocalPathManually() {
+		File path = new File(this.localPath.getText());
+		if (!path.exists()) {
+			JOptionPane.showMessageDialog(this, 
+					"Path is invalid.", 
+					"Error", 
+					JOptionPane.ERROR_MESSAGE);
+			SwingUtilities.invokeLater(new FocusGrabber(this.localPath));
+		} else {
+			getLocalDirectoryListing(this.localPath.getText());
+		}
+	}
+	
+	private void setRemotePathManually() {
+		try {
+			conn.executeCommand(String.format("find file where filnam = '%s'", this.remotePath.getText()));
+			this.getRemoteDirectoryListing(this.remotePath.getText());
+		} catch (MocaException e) {
+			JOptionPane.showMessageDialog(this, 
+					"Path is invalid.", 
+					"Error", 
+					JOptionPane.ERROR_MESSAGE);
+			SwingUtilities.invokeLater(new FocusGrabber(this.remotePath));
+		}
+	}
+	
 	private void performLocalDirectoryChange(int row) {
 		String subdirectory = (String)this.localListing.getValueAt(row, AbstractListingTableModel.FILE_NAME_COLUMN_INDEX);
 		String newdirectory = String.format("%s/%s", this.localPath.getText(), subdirectory);
@@ -491,6 +544,18 @@ public class FileTransferUI extends JFrame {
 			
 		} else {
 			this.logArea.append("Nothing to download\n");
+		}
+	}
+	
+	class FocusGrabber implements Runnable {
+		private JComponent component;
+
+		public FocusGrabber(JComponent component) {
+			this.component = component;
+		}
+
+		public void run() {
+			component.grabFocus();
 		}
 	}
 }
