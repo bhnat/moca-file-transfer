@@ -223,19 +223,37 @@ public class FileTransferUI extends JFrame {
 						public void actionPerformed(ActionEvent e) {
 							//System.out.println("Action from " + e.getSource().toString());
 							int[] rows = localListing.getSelectedRows();
+							
+							StringBuilder prompt = new StringBuilder();
+							prompt.append("Delete the following files:\n");
 							for (int rowIndex : rows) {
 								String fileName = localListing.getValueAt(rowIndex, AbstractListingTableModel.FILE_NAME_COLUMN_INDEX).toString();
-								final String sourceFile = String.format("%s/%s", localPath.getText(), fileName);
-								File file = new File(sourceFile);
-								if (file.delete()) {
-									String logMessage = String.format("Deleted %s\n", sourceFile);
-									logArea.append(logMessage);
-								} else {
-									String logMessage = String.format("Could not delete %s\n", sourceFile);
-									logArea.append(logMessage);
-								}
+								prompt.append(" - " + fileName + "\n");
 							}
-							getLocalDirectoryListing(localPath.getText());
+							
+							int selectedOption = promptConfirmDelete(prompt.toString());
+							
+							if (selectedOption == JOptionPane.YES_OPTION) {
+								for (int rowIndex : rows) {
+									String fileType = localListing.getValueAt(rowIndex, AbstractListingTableModel.FILE_TYPE_COLUMN_INDEX).toString();
+									String fileName = localListing.getValueAt(rowIndex, AbstractListingTableModel.FILE_NAME_COLUMN_INDEX).toString();
+									if (AbstractListingTableModel.FILE_TYPE.equalsIgnoreCase(fileType)) {
+										final String sourceFile = String.format("%s/%s", localPath.getText(), fileName);
+										File file = new File(sourceFile);
+										if (file.delete()) {
+											String logMessage = String.format("Deleted %s\n", sourceFile);
+											logArea.append(logMessage);
+										} else {
+											String logMessage = String.format("Could not delete %s\n", sourceFile);
+											logArea.append(logMessage);
+										}
+									} else {
+										String logMessage = String.format("Could not delete %s - deleting a directory is not supported at this time.\n", fileName);
+										logArea.append(logMessage);
+									}
+								}
+								getLocalDirectoryListing(localPath.getText());
+							}
 						}
                 	});
                 	
@@ -277,26 +295,44 @@ public class FileTransferUI extends JFrame {
 						public void actionPerformed(ActionEvent e) {
 							//System.out.println("Action from " + e.getSource().toString());
 							int[] rows = remoteListing.getSelectedRows();
+							
+							StringBuilder prompt = new StringBuilder();
+							prompt.append("Delete the following files:\n");
 							for (int rowIndex : rows) {
 								String fileName = remoteListing.getValueAt(rowIndex, AbstractListingTableModel.FILE_NAME_COLUMN_INDEX).toString();
-								final String sourceFile = String.format("%s/%s", remotePath.getText(), fileName);
-								String cmd = String.format("[["
-										+ "  File file = new File(\"%s\");"
-										+ "  file.delete();"
-										+ "]]", sourceFile.replace("\\", "\\\\"));
-								try {
-									conn.executeCommand(cmd);
-									String logMessage = String.format("Deleted %s\n", sourceFile);
-									logArea.append(logMessage);
-								} catch (MocaException e1) {
-									String logMessage = String.format("Could not delete %s\n", sourceFile);
-									logArea.append(logMessage);
-									logArea.append("Ran:\n" + cmd + "\n");
-									logArea.append(e1.getLocalizedMessage());
-									logArea.append("\n");
-								}
+								prompt.append(" - " + fileName + "\n");
 							}
-							getRemoteDirectoryListing(remotePath.getText());
+							
+							int selectedOption = promptConfirmDelete(prompt.toString());
+							
+							if (selectedOption == JOptionPane.YES_OPTION) {
+								for (int rowIndex : rows) {
+									String fileName = remoteListing.getValueAt(rowIndex, AbstractListingTableModel.FILE_NAME_COLUMN_INDEX).toString();
+									String fileType = remoteListing.getValueAt(rowIndex, AbstractListingTableModel.FILE_TYPE_COLUMN_INDEX).toString();
+									if (AbstractListingTableModel.FILE_TYPE.equalsIgnoreCase(fileType)) {
+										final String sourceFile = String.format("%s/%s", remotePath.getText(), fileName);
+										String cmd = String.format("[["
+												+ "  File file = new File(\"%s\");"
+												+ "  file.delete();"
+												+ "]]", sourceFile.replace("\\", "\\\\"));
+										try {
+											conn.executeCommand(cmd);
+											String logMessage = String.format("Deleted %s\n", sourceFile);
+											logArea.append(logMessage);
+										} catch (MocaException e1) {
+											String logMessage = String.format("Could not delete %s\n", sourceFile);
+											logArea.append(logMessage);
+											logArea.append("Ran:\n" + cmd + "\n");
+											logArea.append(e1.getLocalizedMessage());
+											logArea.append("\n");
+										}
+									} else {
+										String logMessage = String.format("Could not delete %s - deleting a directory is not supported at this time.\n", fileName);
+										logArea.append(logMessage);
+									}
+								}
+								getRemoteDirectoryListing(remotePath.getText());
+							}
 						}
                 	});
                 	
@@ -524,6 +560,11 @@ public class FileTransferUI extends JFrame {
 		Preferences prefs = Preferences.userRoot().node(this.getClass().getName()); //Preferences.userNodeForPackage(this);
 		prefs.put("host", this.mocaUrl.getText());
 		prefs.put("user", this.mocaUid.getText());
+	}
+	
+	private int promptConfirmDelete(String message) {
+		return JOptionPane.showConfirmDialog(this, message, "Confirm Delete", 
+				JOptionPane.YES_NO_OPTION, JOptionPane.QUESTION_MESSAGE);
 	}
 	
 	private void setLocalPath(String path) {
