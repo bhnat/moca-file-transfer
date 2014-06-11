@@ -36,6 +36,7 @@ import java.awt.event.MouseAdapter;
 import java.awt.event.MouseEvent;
 import java.io.File;
 import java.io.IOException;
+import java.util.prefs.Preferences;
 
 import javax.swing.AbstractAction;
 import javax.swing.Action;
@@ -43,9 +44,11 @@ import javax.swing.JButton;
 import javax.swing.JComponent;
 import javax.swing.JFrame;
 import javax.swing.JLabel;
+import javax.swing.JMenuItem;
 import javax.swing.JOptionPane;
 import javax.swing.JPanel;
 import javax.swing.JPasswordField;
+import javax.swing.JPopupMenu;
 import javax.swing.JScrollPane;
 import javax.swing.JTable;
 import javax.swing.JTextArea;
@@ -165,6 +168,18 @@ public class FileTransferUI extends JFrame {
         this.mocaUid = new JTextField();
         this.mocaPwd = new JPasswordField();
         
+		Action passwordEnterKeyAction = new AbstractAction() {
+			private static final long serialVersionUID = 1L;
+			public void actionPerformed(ActionEvent e) {
+				if (mocaUrl.getText().length() > 0 && mocaUid.getText().length() > 0 && 
+						new String(mocaPwd.getPassword()).length() > 0) {
+					login();
+				}
+		    }
+		};
+        this.mocaPwd.getInputMap().put(KeyStroke.getKeyStroke(KeyEvent.VK_ENTER, 0), "enter");
+		this.mocaPwd.getActionMap().put("enter", passwordEnterKeyAction);
+        
         this.currentLocalDirectory = new File(".");
         JLabel mocaUrlLabel = new JLabel("URL:  ", SwingConstants.RIGHT);
         JLabel mocaUidLabel = new JLabel("UID:  ", SwingConstants.RIGHT);
@@ -187,11 +202,51 @@ public class FileTransferUI extends JFrame {
                 JTable table = (JTable) me.getSource();
                 Point p = me.getPoint();
                 int row = table.rowAtPoint(p);
+                boolean canDelete = (localListing.getSelectedRowCount() > 0);
+                // TODO: boolean canRename = (localListing.getSelectedRowCount() == 0);
                 if (me.getClickCount() == 2) {
                 	String fileType = (String)table.getValueAt(row, AbstractListingTableModel.FILE_TYPE_COLUMN_INDEX);
                 	if (fileType.equalsIgnoreCase(AbstractListingTableModel.DIRECTORY_TYPE)) {
                 		performLocalDirectoryChange(row);
                 	}
+                } else if (me.isPopupTrigger() && me.getComponent() instanceof JTable ) {
+                	JMenuItem itemDelete = new JMenuItem("Delete");
+                	JMenuItem itemRename = new JMenuItem("Rename");
+                	if (!canDelete) { itemDelete.setEnabled(false); }
+                	// TODO:  if (!canRename) { itemRename.setEnabled(false); }
+                	itemRename.setEnabled(false);
+                	
+                	itemDelete.addActionListener(new ActionListener() {
+
+                		// TODO:  Implement rename functionality
+						@Override
+						public void actionPerformed(ActionEvent e) {
+							//System.out.println("Action from " + e.getSource().toString());
+							int[] rows = localListing.getSelectedRows();
+							for (int rowIndex : rows) {
+								String fileName = localListing.getValueAt(rowIndex, AbstractListingTableModel.FILE_NAME_COLUMN_INDEX).toString();
+								final String sourceFile = String.format("%s/%s", localPath.getText(), fileName);
+								File file = new File(sourceFile);
+								if (file.delete()) {
+									String logMessage = String.format("Deleted %s\n", sourceFile);
+									logArea.append(logMessage);
+								} else {
+									String logMessage = String.format("Could not delete %s\n", sourceFile);
+									logArea.append(logMessage);
+								}
+							}
+							getLocalDirectoryListing(localPath.getText());
+						}
+                	});
+                	
+                	JPopupMenu popup = new JPopupMenu("Test"); //createYourPopUp();
+                	popup.add(itemDelete);
+                	popup.add(itemRename);
+                    popup.show(me.getComponent(), me.getX(), me.getY());
+                    
+                    //System.out.println("Pop up menu");
+                    // also mouse released for non-ios
+                    // http://stackoverflow.com/questions/3558293/java-swing-jtable-right-click-menu-how-do-i-get-it-to-select-aka-highlight-t
                 }
             }
         });
@@ -201,11 +256,58 @@ public class FileTransferUI extends JFrame {
                 JTable table = (JTable) me.getSource();
                 Point p = me.getPoint();
                 int row = table.rowAtPoint(p);
+                boolean canDelete = (remoteListing.getSelectedRowCount() > 0);
+                // TODO: boolean canRename = (remoteListing.getSelectedRowCount() == 0);
                 if (me.getClickCount() == 2) {
                 	String fileType = (String)table.getValueAt(row, AbstractListingTableModel.FILE_TYPE_COLUMN_INDEX);
                 	if (fileType.equalsIgnoreCase(AbstractListingTableModel.DIRECTORY_TYPE)) {
                 		performRemoteDirectoryChange(row);
                 	}
+                } else if (me.isPopupTrigger() && me.getComponent() instanceof JTable ) {
+                	JMenuItem itemDelete = new JMenuItem("Delete");
+                	JMenuItem itemRename = new JMenuItem("Rename");
+                	if (!canDelete) { itemDelete.setEnabled(false); }
+                	// TODO:  if (!canRename) { itemRename.setEnabled(false); }
+                	itemRename.setEnabled(false);
+                	
+                	itemDelete.addActionListener(new ActionListener() {
+
+                		// TODO:  Implement rename functionality
+						@Override
+						public void actionPerformed(ActionEvent e) {
+							//System.out.println("Action from " + e.getSource().toString());
+							int[] rows = remoteListing.getSelectedRows();
+							for (int rowIndex : rows) {
+								String fileName = remoteListing.getValueAt(rowIndex, AbstractListingTableModel.FILE_NAME_COLUMN_INDEX).toString();
+								final String sourceFile = String.format("%s/%s", remotePath.getText(), fileName);
+								String cmd = String.format("[["
+										+ "  File file = new File(\"%s\");"
+										+ "  file.delete();"
+										+ "]]", sourceFile.replace("\\", "\\\\"));
+								try {
+									conn.executeCommand(cmd);
+									String logMessage = String.format("Deleted %s\n", sourceFile);
+									logArea.append(logMessage);
+								} catch (MocaException e1) {
+									String logMessage = String.format("Could not delete %s\n", sourceFile);
+									logArea.append(logMessage);
+									logArea.append("Ran:\n" + cmd + "\n");
+									logArea.append(e1.getLocalizedMessage());
+									logArea.append("\n");
+								}
+							}
+							getRemoteDirectoryListing(remotePath.getText());
+						}
+                	});
+                	
+                	JPopupMenu popup = new JPopupMenu("Test"); //createYourPopUp();
+                	popup.add(itemDelete);
+                	popup.add(itemRename);
+                    popup.show(me.getComponent(), me.getX(), me.getY());
+                    
+                    //System.out.println("Pop up menu");
+                    // also mouse released for non-ios
+                    // http://stackoverflow.com/questions/3558293/java-swing-jtable-right-click-menu-how-do-i-get-it-to-select-aka-highlight-t
                 }
             }
         });
@@ -337,6 +439,7 @@ public class FileTransferUI extends JFrame {
 		this.contentPane.getActionMap().put("refresh", refreshAction);
 		
 		this.setTitle("moca File Transfer");
+		this.fetchUserDefaults();
 		this.setLocalPath(this.currentLocalDirectory.getAbsolutePath());
 		resetColumnSizes();
 	}
@@ -405,7 +508,22 @@ public class FileTransferUI extends JFrame {
 			newConn = new DirectConnection(host, port);
 		}
 		ConnectionUtils.login(newConn, this.mocaUid.getText(), new String(this.mocaPwd.getPassword()));
+		this.storeUserDefaults();
 		return newConn;
+	}
+	
+	private void fetchUserDefaults() {
+		Preferences prefs = Preferences.userRoot().node(this.getClass().getName()); //Preferences.userNodeForPackage(this);
+		String host = prefs.get("host", "http://localhost:4500/service");
+		String user = prefs.get("user", "super");
+		this.mocaUrl.setText(host);
+		this.mocaUid.setText(user);
+	}
+	
+	private void storeUserDefaults() {
+		Preferences prefs = Preferences.userRoot().node(this.getClass().getName()); //Preferences.userNodeForPackage(this);
+		prefs.put("host", this.mocaUrl.getText());
+		prefs.put("user", this.mocaUid.getText());
 	}
 	
 	private void setLocalPath(String path) {
@@ -511,8 +629,7 @@ public class FileTransferUI extends JFrame {
 				    }
 				};
 				worker.execute();
-			}
-			
+			}	
 		} else {
 			this.logArea.append("Nothing to upload\n");
 		}
@@ -524,8 +641,6 @@ public class FileTransferUI extends JFrame {
 			final String sourcePath = this.remotePath.getText();
 			int[] rows = this.remoteListing.getSelectedRows();
 			for (int rowIndex : rows) {
-				
-				
 				
 				final String fileName = this.remoteListing.getValueAt(rowIndex, AbstractListingTableModel.FILE_NAME_COLUMN_INDEX).toString();
 				final String sourceFile = String.format("%s/%s", sourcePath, fileName);
@@ -560,9 +675,6 @@ public class FileTransferUI extends JFrame {
 				};
 				worker.execute();
 			}
-			
-			
-			
 		} else {
 			this.logArea.append("Nothing to download\n");
 		}

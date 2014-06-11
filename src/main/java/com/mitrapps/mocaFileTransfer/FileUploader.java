@@ -45,6 +45,7 @@ public class FileUploader {
 			// Convert contents to byte array and print ack message to user
 			InputStream in = new FileInputStream(file); 
 			byte[] fileContents = IOUtils.toByteArray(in);
+			in.close();
 			//System.out.println("Byte array size is " + fileContents.length);
 
 			String command = String.format(
