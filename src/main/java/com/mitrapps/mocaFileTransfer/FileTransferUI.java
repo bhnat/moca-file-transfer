@@ -212,9 +212,17 @@ public class FileTransferUI extends JFrame {
                 } else if (me.isPopupTrigger() && me.getComponent() instanceof JTable ) {
                 	JMenuItem itemDelete = new JMenuItem("Delete");
                 	JMenuItem itemRename = new JMenuItem("Rename");
+                	JMenuItem itemUpload = new JMenuItem("Upload");
                 	if (!canDelete) { itemDelete.setEnabled(false); }
                 	// TODO:  if (!canRename) { itemRename.setEnabled(false); }
                 	itemRename.setEnabled(false);
+                	
+                	itemUpload.addActionListener(new ActionListener() {
+                		@Override
+						public void actionPerformed(ActionEvent e) {
+                			performUpload();
+                		}
+                	});
                 	
                 	itemDelete.addActionListener(new ActionListener() {
 
@@ -258,8 +266,9 @@ public class FileTransferUI extends JFrame {
                 	});
                 	
                 	JPopupMenu popup = new JPopupMenu("Test"); //createYourPopUp();
-                	popup.add(itemDelete);
+                	popup.add(itemUpload);
                 	popup.add(itemRename);
+                	popup.add(itemDelete);
                     popup.show(me.getComponent(), me.getX(), me.getY());
                     
                     //System.out.println("Pop up menu");
@@ -284,9 +293,17 @@ public class FileTransferUI extends JFrame {
                 } else if (me.isPopupTrigger() && me.getComponent() instanceof JTable ) {
                 	JMenuItem itemDelete = new JMenuItem("Delete");
                 	JMenuItem itemRename = new JMenuItem("Rename");
+                	JMenuItem itemDownload = new JMenuItem("Download");
                 	if (!canDelete) { itemDelete.setEnabled(false); }
                 	// TODO:  if (!canRename) { itemRename.setEnabled(false); }
                 	itemRename.setEnabled(false);
+                	
+                	itemDownload.addActionListener(new ActionListener() {
+                		@Override
+						public void actionPerformed(ActionEvent e) {
+                			performDownload();
+                		}
+                	});
                 	
                 	itemDelete.addActionListener(new ActionListener() {
 
@@ -337,8 +354,9 @@ public class FileTransferUI extends JFrame {
                 	});
                 	
                 	JPopupMenu popup = new JPopupMenu("Test"); //createYourPopUp();
-                	popup.add(itemDelete);
+                	popup.add(itemDownload);
                 	popup.add(itemRename);
+                	popup.add(itemDelete);
                     popup.show(me.getComponent(), me.getX(), me.getY());
                     
                     //System.out.println("Pop up menu");
