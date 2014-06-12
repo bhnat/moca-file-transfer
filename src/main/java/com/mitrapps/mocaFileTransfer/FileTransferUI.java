@@ -199,10 +199,11 @@ public class FileTransferUI extends JFrame {
         
         this.localListing.addMouseListener(new MouseAdapter() {
             public void mousePressed(MouseEvent me) {
+            	
                 JTable table = (JTable) me.getSource();
                 Point p = me.getPoint();
                 int row = table.rowAtPoint(p);
-                boolean canDelete = (localListing.getSelectedRowCount() > 0);
+                
                 // TODO: boolean canRename = (localListing.getSelectedRowCount() == 0);
                 if (me.getClickCount() == 2) {
                 	String fileType = (String)table.getValueAt(row, AbstractListingTableModel.FILE_TYPE_COLUMN_INDEX);
@@ -210,72 +211,83 @@ public class FileTransferUI extends JFrame {
                 		performLocalDirectoryChange(row);
                 	}
                 } else if (me.isPopupTrigger() && me.getComponent() instanceof JTable ) {
-                	JMenuItem itemDelete = new JMenuItem("Delete");
-                	JMenuItem itemRename = new JMenuItem("Rename");
-                	JMenuItem itemUpload = new JMenuItem("Upload");
-                	if (!canDelete) { itemDelete.setEnabled(false); }
-                	// TODO:  if (!canRename) { itemRename.setEnabled(false); }
-                	itemRename.setEnabled(false);
-                	
-                	itemUpload.addActionListener(new ActionListener() {
-                		@Override
-						public void actionPerformed(ActionEvent e) {
-                			performUpload();
-                		}
-                	});
-                	
-                	itemDelete.addActionListener(new ActionListener() {
-
-                		// TODO:  Implement rename functionality
-						@Override
-						public void actionPerformed(ActionEvent e) {
-							//System.out.println("Action from " + e.getSource().toString());
-							int[] rows = localListing.getSelectedRows();
-							
-							StringBuilder prompt = new StringBuilder();
-							prompt.append("Delete the following files:\n");
-							for (int rowIndex : rows) {
-								String fileName = localListing.getValueAt(rowIndex, AbstractListingTableModel.FILE_NAME_COLUMN_INDEX).toString();
-								prompt.append(" - " + fileName + "\n");
-							}
-							
-							int selectedOption = promptConfirmDelete(prompt.toString());
-							
-							if (selectedOption == JOptionPane.YES_OPTION) {
-								for (int rowIndex : rows) {
-									String fileType = localListing.getValueAt(rowIndex, AbstractListingTableModel.FILE_TYPE_COLUMN_INDEX).toString();
-									String fileName = localListing.getValueAt(rowIndex, AbstractListingTableModel.FILE_NAME_COLUMN_INDEX).toString();
-									if (AbstractListingTableModel.FILE_TYPE.equalsIgnoreCase(fileType)) {
-										final String sourceFile = String.format("%s/%s", localPath.getText(), fileName);
-										File file = new File(sourceFile);
-										if (file.delete()) {
-											String logMessage = String.format("Deleted %s\n", sourceFile);
-											logArea.append(logMessage);
-										} else {
-											String logMessage = String.format("Could not delete %s\n", sourceFile);
-											logArea.append(logMessage);
-										}
-									} else {
-										String logMessage = String.format("Could not delete %s - deleting a directory is not supported at this time.\n", fileName);
-										logArea.append(logMessage);
-									}
-								}
-								getLocalDirectoryListing(localPath.getText());
-							}
-						}
-                	});
-                	
-                	JPopupMenu popup = new JPopupMenu("Test"); //createYourPopUp();
-                	popup.add(itemUpload);
-                	popup.add(itemRename);
-                	popup.add(itemDelete);
-                    popup.show(me.getComponent(), me.getX(), me.getY());
-                    
-                    //System.out.println("Pop up menu");
-                    // also mouse released for non-ios
-                    // http://stackoverflow.com/questions/3558293/java-swing-jtable-right-click-menu-how-do-i-get-it-to-select-aka-highlight-t
+                	handleLocalListingRightClick(me);
                 }
             }
+            
+            public void mouseReleased(MouseEvent me) {
+            	if (me.isPopupTrigger() && me.getComponent() instanceof JTable ) {
+                	handleLocalListingRightClick(me);
+                }
+            }
+
+			private void handleLocalListingRightClick(MouseEvent me) {
+				boolean canDelete = (localListing.getSelectedRowCount() > 0);
+				JMenuItem itemDelete = new JMenuItem("Delete");
+				JMenuItem itemRename = new JMenuItem("Rename");
+				JMenuItem itemUpload = new JMenuItem("Upload");
+				if (!canDelete) { itemDelete.setEnabled(false); }
+				// TODO:  if (!canRename) { itemRename.setEnabled(false); }
+				itemRename.setEnabled(false);
+				
+				itemUpload.addActionListener(new ActionListener() {
+					@Override
+					public void actionPerformed(ActionEvent e) {
+						performUpload();
+					}
+				});
+				
+				itemDelete.addActionListener(new ActionListener() {
+
+					// TODO:  Implement rename functionality
+					@Override
+					public void actionPerformed(ActionEvent e) {
+						//System.out.println("Action from " + e.getSource().toString());
+						int[] rows = localListing.getSelectedRows();
+						
+						StringBuilder prompt = new StringBuilder();
+						prompt.append("Delete the following files:\n");
+						for (int rowIndex : rows) {
+							String fileName = localListing.getValueAt(rowIndex, AbstractListingTableModel.FILE_NAME_COLUMN_INDEX).toString();
+							prompt.append(" - " + fileName + "\n");
+						}
+						
+						int selectedOption = promptConfirmDelete(prompt.toString());
+						
+						if (selectedOption == JOptionPane.YES_OPTION) {
+							for (int rowIndex : rows) {
+								String fileType = localListing.getValueAt(rowIndex, AbstractListingTableModel.FILE_TYPE_COLUMN_INDEX).toString();
+								String fileName = localListing.getValueAt(rowIndex, AbstractListingTableModel.FILE_NAME_COLUMN_INDEX).toString();
+								if (AbstractListingTableModel.FILE_TYPE.equalsIgnoreCase(fileType)) {
+									final String sourceFile = String.format("%s/%s", localPath.getText(), fileName);
+									File file = new File(sourceFile);
+									if (file.delete()) {
+										String logMessage = String.format("Deleted %s\n", sourceFile);
+										logArea.append(logMessage);
+									} else {
+										String logMessage = String.format("Could not delete %s\n", sourceFile);
+										logArea.append(logMessage);
+									}
+								} else {
+									String logMessage = String.format("Could not delete %s - deleting a directory is not supported at this time.\n", fileName);
+									logArea.append(logMessage);
+								}
+							}
+							getLocalDirectoryListing(localPath.getText());
+						}
+					}
+				});
+				
+				JPopupMenu popup = new JPopupMenu("Test"); //createYourPopUp();
+				popup.add(itemUpload);
+				popup.add(itemRename);
+				popup.add(itemDelete);
+				popup.show(me.getComponent(), me.getX(), me.getY());
+				
+				//System.out.println("Pop up menu");
+				// also mouse released for non-ios
+				// http://stackoverflow.com/questions/3558293/java-swing-jtable-right-click-menu-how-do-i-get-it-to-select-aka-highlight-t
+			}
         });
         
         this.remoteListing.addMouseListener(new MouseAdapter() {
@@ -283,7 +295,7 @@ public class FileTransferUI extends JFrame {
                 JTable table = (JTable) me.getSource();
                 Point p = me.getPoint();
                 int row = table.rowAtPoint(p);
-                boolean canDelete = (remoteListing.getSelectedRowCount() > 0);
+                
                 // TODO: boolean canRename = (remoteListing.getSelectedRowCount() == 0);
                 if (me.getClickCount() == 2) {
                 	String fileType = (String)table.getValueAt(row, AbstractListingTableModel.FILE_TYPE_COLUMN_INDEX);
@@ -291,79 +303,90 @@ public class FileTransferUI extends JFrame {
                 		performRemoteDirectoryChange(row);
                 	}
                 } else if (me.isPopupTrigger() && me.getComponent() instanceof JTable ) {
-                	JMenuItem itemDelete = new JMenuItem("Delete");
-                	JMenuItem itemRename = new JMenuItem("Rename");
-                	JMenuItem itemDownload = new JMenuItem("Download");
-                	if (!canDelete) { itemDelete.setEnabled(false); }
-                	// TODO:  if (!canRename) { itemRename.setEnabled(false); }
-                	itemRename.setEnabled(false);
-                	
-                	itemDownload.addActionListener(new ActionListener() {
-                		@Override
-						public void actionPerformed(ActionEvent e) {
-                			performDownload();
-                		}
-                	});
-                	
-                	itemDelete.addActionListener(new ActionListener() {
-
-                		// TODO:  Implement rename functionality
-						@Override
-						public void actionPerformed(ActionEvent e) {
-							//System.out.println("Action from " + e.getSource().toString());
-							int[] rows = remoteListing.getSelectedRows();
-							
-							StringBuilder prompt = new StringBuilder();
-							prompt.append("Delete the following files:\n");
-							for (int rowIndex : rows) {
-								String fileName = remoteListing.getValueAt(rowIndex, AbstractListingTableModel.FILE_NAME_COLUMN_INDEX).toString();
-								prompt.append(" - " + fileName + "\n");
-							}
-							
-							int selectedOption = promptConfirmDelete(prompt.toString());
-							
-							if (selectedOption == JOptionPane.YES_OPTION) {
-								for (int rowIndex : rows) {
-									String fileName = remoteListing.getValueAt(rowIndex, AbstractListingTableModel.FILE_NAME_COLUMN_INDEX).toString();
-									String fileType = remoteListing.getValueAt(rowIndex, AbstractListingTableModel.FILE_TYPE_COLUMN_INDEX).toString();
-									if (AbstractListingTableModel.FILE_TYPE.equalsIgnoreCase(fileType)) {
-										final String sourceFile = String.format("%s/%s", remotePath.getText(), fileName);
-										String cmd = String.format("[["
-												+ "  File file = new File(\"%s\");"
-												+ "  file.delete();"
-												+ "]]", sourceFile.replace("\\", "\\\\"));
-										try {
-											conn.executeCommand(cmd);
-											String logMessage = String.format("Deleted %s\n", sourceFile);
-											logArea.append(logMessage);
-										} catch (MocaException e1) {
-											String logMessage = String.format("Could not delete %s\n", sourceFile);
-											logArea.append(logMessage);
-											logArea.append("Ran:\n" + cmd + "\n");
-											logArea.append(e1.getLocalizedMessage());
-											logArea.append("\n");
-										}
-									} else {
-										String logMessage = String.format("Could not delete %s - deleting a directory is not supported at this time.\n", fileName);
-										logArea.append(logMessage);
-									}
-								}
-								getRemoteDirectoryListing(remotePath.getText());
-							}
-						}
-                	});
-                	
-                	JPopupMenu popup = new JPopupMenu("Test"); //createYourPopUp();
-                	popup.add(itemDownload);
-                	popup.add(itemRename);
-                	popup.add(itemDelete);
-                    popup.show(me.getComponent(), me.getX(), me.getY());
-                    
-                    //System.out.println("Pop up menu");
-                    // also mouse released for non-ios
-                    // http://stackoverflow.com/questions/3558293/java-swing-jtable-right-click-menu-how-do-i-get-it-to-select-aka-highlight-t
+                	handleRemoteListingRightClick(me);
                 }
             }
+            
+            public void mouseReleased(MouseEvent me) {
+            	if (me.isPopupTrigger() && me.getComponent() instanceof JTable ) {
+                	handleRemoteListingRightClick(me);
+                }
+            }
+
+			private void handleRemoteListingRightClick(MouseEvent me) {
+				boolean canDelete = (remoteListing.getSelectedRowCount() > 0);
+				JMenuItem itemDelete = new JMenuItem("Delete");
+				JMenuItem itemRename = new JMenuItem("Rename");
+				JMenuItem itemDownload = new JMenuItem("Download");
+				if (!canDelete) { itemDelete.setEnabled(false); }
+				// TODO:  if (!canRename) { itemRename.setEnabled(false); }
+				itemRename.setEnabled(false);
+				
+				itemDownload.addActionListener(new ActionListener() {
+					@Override
+					public void actionPerformed(ActionEvent e) {
+						performDownload();
+					}
+				});
+				
+				itemDelete.addActionListener(new ActionListener() {
+
+					// TODO:  Implement rename functionality
+					@Override
+					public void actionPerformed(ActionEvent e) {
+						//System.out.println("Action from " + e.getSource().toString());
+						int[] rows = remoteListing.getSelectedRows();
+						
+						StringBuilder prompt = new StringBuilder();
+						prompt.append("Delete the following files:\n");
+						for (int rowIndex : rows) {
+							String fileName = remoteListing.getValueAt(rowIndex, AbstractListingTableModel.FILE_NAME_COLUMN_INDEX).toString();
+							prompt.append(" - " + fileName + "\n");
+						}
+						
+						int selectedOption = promptConfirmDelete(prompt.toString());
+						
+						if (selectedOption == JOptionPane.YES_OPTION) {
+							for (int rowIndex : rows) {
+								String fileName = remoteListing.getValueAt(rowIndex, AbstractListingTableModel.FILE_NAME_COLUMN_INDEX).toString();
+								String fileType = remoteListing.getValueAt(rowIndex, AbstractListingTableModel.FILE_TYPE_COLUMN_INDEX).toString();
+								if (AbstractListingTableModel.FILE_TYPE.equalsIgnoreCase(fileType)) {
+									final String sourceFile = String.format("%s/%s", remotePath.getText(), fileName);
+									String cmd = String.format("[["
+											+ "  File file = new File(\"%s\");"
+											+ "  file.delete();"
+											+ "]]", sourceFile.replace("\\", "\\\\"));
+									try {
+										conn.executeCommand(cmd);
+										String logMessage = String.format("Deleted %s\n", sourceFile);
+										logArea.append(logMessage);
+									} catch (MocaException e1) {
+										String logMessage = String.format("Could not delete %s\n", sourceFile);
+										logArea.append(logMessage);
+										logArea.append("Ran:\n" + cmd + "\n");
+										logArea.append(e1.getLocalizedMessage());
+										logArea.append("\n");
+									}
+								} else {
+									String logMessage = String.format("Could not delete %s - deleting a directory is not supported at this time.\n", fileName);
+									logArea.append(logMessage);
+								}
+							}
+							getRemoteDirectoryListing(remotePath.getText());
+						}
+					}
+				});
+				
+				JPopupMenu popup = new JPopupMenu("Test"); //createYourPopUp();
+				popup.add(itemDownload);
+				popup.add(itemRename);
+				popup.add(itemDelete);
+				popup.show(me.getComponent(), me.getX(), me.getY());
+				
+				//System.out.println("Pop up menu");
+				// also mouse released for non-ios
+				// http://stackoverflow.com/questions/3558293/java-swing-jtable-right-click-menu-how-do-i-get-it-to-select-aka-highlight-t
+			}
         });
         
         JScrollPane localScrollPane = new JScrollPane(this.localListing);
@@ -492,7 +515,7 @@ public class FileTransferUI extends JFrame {
 		this.contentPane.getInputMap(JComponent.WHEN_IN_FOCUSED_WINDOW).put(KeyStroke.getKeyStroke(KeyEvent.VK_R, Event.META_MASK), "refresh");
 		this.contentPane.getActionMap().put("refresh", refreshAction);
 		
-		this.setTitle("moca File Transfer");
+		this.setTitle("moca File Transfer - v0.16");
 		this.fetchUserDefaults();
 		this.setLocalPath(this.currentLocalDirectory.getAbsolutePath());
 		resetColumnSizes();

@@ -10,4 +10,8 @@ it in your local maven repository before building this project.
 - Also supports legacy moca connections (DirectConnection) - type in the host:port  
 - Can now directly type in a local or remote path   
 
+2014 June 12
+- Can now right click in the tables to upload, download, or delete files
+- Stores URL and user id from last connection for convenience (until the list of connections feature is implemented)
+
 Check out the [project wiki](../../wiki).
