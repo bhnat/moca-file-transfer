@@ -34,6 +34,8 @@ import java.awt.event.FocusListener;
 import java.awt.event.KeyEvent;
 import java.awt.event.MouseAdapter;
 import java.awt.event.MouseEvent;
+import java.awt.event.WindowAdapter;
+import java.awt.event.WindowEvent;
 import java.io.File;
 import java.io.IOException;
 import java.util.prefs.Preferences;
@@ -116,6 +118,12 @@ public class FileTransferUI extends JFrame {
 		SpringLayout layout = new SpringLayout();
         contentPane.setLayout(layout);
         
+        this.addWindowListener(new WindowAdapter() {
+            public void windowClosing(WindowEvent e) {
+              storeUserDefaults();
+            }
+          });
+        
         JLabel localPathLabel = new JLabel("Local: ");
         JLabel remotePathLabel = new JLabel("Remote: ");
         
@@ -180,7 +188,6 @@ public class FileTransferUI extends JFrame {
         this.mocaPwd.getInputMap().put(KeyStroke.getKeyStroke(KeyEvent.VK_ENTER, 0), "enter");
 		this.mocaPwd.getActionMap().put("enter", passwordEnterKeyAction);
         
-        this.currentLocalDirectory = new File(".");
         JLabel mocaUrlLabel = new JLabel("URL:  ", SwingConstants.RIGHT);
         JLabel mocaUidLabel = new JLabel("UID:  ", SwingConstants.RIGHT);
         JLabel mocaPwdLabel = new JLabel("PWD:  ", SwingConstants.RIGHT);
@@ -191,6 +198,8 @@ public class FileTransferUI extends JFrame {
     			login();
     		}
     	});
+        
+        this.fetchUserDefaults();
         
         this.localListing = new JTable(new LocalListingTableModel(this.currentLocalDirectory));
         this.remoteListing = new JTable(new RemoteListingTableModel(null, REMOTE_HOME_DIR));
@@ -426,7 +435,36 @@ public class FileTransferUI extends JFrame {
         contentPane.add(this.downloadButton);
         contentPane.add(logScrollPane);
         
-        // pin all the connection info 5 from the top
+        configureLayoutConstraints(layout, localPathLabel, remotePathLabel,
+				mocaUrlLabel, mocaUidLabel, mocaPwdLabel, localScrollPane,
+				remoteScrollPane, logScrollPane);
+        
+        
+		setContentPane(contentPane);
+		
+		Action refreshAction = new AbstractAction() {
+			private static final long serialVersionUID = 1L;
+			public void actionPerformed(ActionEvent e) {
+				refresh();
+		    }
+		};
+		
+		this.contentPane.getInputMap(JComponent.WHEN_IN_FOCUSED_WINDOW).put(KeyStroke.getKeyStroke("F5"), "refresh");
+		this.contentPane.getInputMap(JComponent.WHEN_IN_FOCUSED_WINDOW).put(KeyStroke.getKeyStroke(KeyEvent.VK_R, Event.META_MASK), "refresh");
+		this.contentPane.getActionMap().put("refresh", refreshAction);
+		
+		this.setTitle("moca File Transfer - v0.17");
+		
+		resetColumnSizes();
+	}
+
+	private void configureLayoutConstraints(SpringLayout layout,
+			JLabel localPathLabel, JLabel remotePathLabel, JLabel mocaUrlLabel,
+			JLabel mocaUidLabel, JLabel mocaPwdLabel,
+			JScrollPane localScrollPane, JScrollPane remoteScrollPane,
+			JScrollPane logScrollPane) {
+		
+		// pin all the connection info 5 from the top
         layout.putConstraint(SpringLayout.NORTH, mocaUrlLabel, 5, SpringLayout.NORTH, contentPane);
         layout.putConstraint(SpringLayout.NORTH, this.mocaUrl, 5, SpringLayout.NORTH, contentPane);
         layout.putConstraint(SpringLayout.NORTH, mocaUidLabel, 5, SpringLayout.NORTH, contentPane);
@@ -500,25 +538,6 @@ public class FileTransferUI extends JFrame {
         
         layout.putConstraint(SpringLayout.SOUTH, remoteScrollPane, -20, SpringLayout.NORTH, logScrollPane);
         layout.putConstraint(SpringLayout.SOUTH, localScrollPane, -20, SpringLayout.NORTH, logScrollPane);
-        
-        
-		setContentPane(contentPane);
-		
-		Action refreshAction = new AbstractAction() {
-			private static final long serialVersionUID = 1L;
-			public void actionPerformed(ActionEvent e) {
-				refresh();
-		    }
-		};
-		
-		this.contentPane.getInputMap(JComponent.WHEN_IN_FOCUSED_WINDOW).put(KeyStroke.getKeyStroke("F5"), "refresh");
-		this.contentPane.getInputMap(JComponent.WHEN_IN_FOCUSED_WINDOW).put(KeyStroke.getKeyStroke(KeyEvent.VK_R, Event.META_MASK), "refresh");
-		this.contentPane.getActionMap().put("refresh", refreshAction);
-		
-		this.setTitle("moca File Transfer - v0.16");
-		this.fetchUserDefaults();
-		this.setLocalPath(this.currentLocalDirectory.getAbsolutePath());
-		resetColumnSizes();
 	}
 
 	private void resetColumnSizes() {
@@ -565,10 +584,16 @@ public class FileTransferUI extends JFrame {
 	}
 
 	private void displayException(Exception e) {
-		StackTraceElement[] st = e.getStackTrace();
-		for (StackTraceElement element : st) {
-			this.logArea.append(element.toString());
+		if (e instanceof MocaException) {
+			MocaException me = (MocaException)e;
+			this.logArea.append(String.format("%d: %s",me.getErrorCode(),me.getLocalizedMessage()));
 			this.logArea.append("\n");
+		} else {
+			StackTraceElement[] st = e.getStackTrace();
+			for (StackTraceElement element : st) {
+				this.logArea.append(element.toString());
+				this.logArea.append("\n");
+			}
 		}
 	}
 
@@ -590,17 +615,25 @@ public class FileTransferUI extends JFrame {
 	}
 	
 	private void fetchUserDefaults() {
+		File currentDir = new File(".");
 		Preferences prefs = Preferences.userRoot().node(this.getClass().getName()); //Preferences.userNodeForPackage(this);
 		String host = prefs.get("host", "http://localhost:4500/service");
 		String user = prefs.get("user", "super");
+		String lastLocalPath = prefs.get("lastPath", currentDir.getAbsolutePath());
 		this.mocaUrl.setText(host);
 		this.mocaUid.setText(user);
+		this.setLocalPath(lastLocalPath);
+		
+		System.out.println("Fetched " + lastLocalPath);
 	}
 	
 	private void storeUserDefaults() {
 		Preferences prefs = Preferences.userRoot().node(this.getClass().getName()); //Preferences.userNodeForPackage(this);
 		prefs.put("host", this.mocaUrl.getText());
 		prefs.put("user", this.mocaUid.getText());
+		prefs.put("lastPath", this.currentLocalDirectory.getAbsolutePath());
+		
+		System.out.println("Stored " + this.currentLocalDirectory.getAbsolutePath());
 	}
 	
 	private int promptConfirmDelete(String message) {
